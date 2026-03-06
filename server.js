@@ -97,6 +97,11 @@ function buildVirusTotalRiskSignals(vt) {
   const harmless = Number(stats.harmless || 0);
   const undetected = Number(stats.undetected || 0);
   const totalEngines = malicious + suspicious + harmless + undetected;
+  const timesSubmitted = Number(vt.timesSubmitted || 0);
+  const firstSubmissionDate = typeof vt.firstSubmissionDate === "number" ? vt.firstSubmissionDate : null;
+  const ageDays = firstSubmissionDate != null
+    ? Math.floor((unixNow() - firstSubmissionDate) / ONE_DAY_SECONDS)
+    : null;
 
   if (malicious > 0) {
     signals.push({
@@ -114,15 +119,20 @@ function buildVirusTotalRiskSignals(vt) {
     });
   }
 
-  if (typeof vt.firstSubmissionDate === "number") {
-    const ageDays = Math.floor((unixNow() - vt.firstSubmissionDate) / ONE_DAY_SECONDS);
-    if (ageDays >= 0 && ageDays <= 30) {
-      signals.push({
-        level: "medium",
-        code: "recent_first_seen",
-        message: `URL first seen ${ageDays} day(s) ago on VirusTotal.`
-      });
-    }
+  if (ageDays != null && ageDays >= 0 && ageDays <= 30) {
+    signals.push({
+      level: "medium",
+      code: "recent_first_seen",
+      message: `URL first seen ${ageDays} day(s) ago on VirusTotal.`
+    });
+  }
+
+  if (ageDays != null && ageDays >= 0 && ageDays <= 14 && timesSubmitted > 0 && timesSubmitted <= 5) {
+    signals.push({
+      level: "high",
+      code: "recent_low_history",
+      message: `URL appears recently seen (${ageDays} day(s)) with low submission history (${timesSubmitted}), which can match fresh phishing infrastructure.`
+    });
   }
 
   if (typeof vt.reputation === "number" && vt.reputation < 0) {
